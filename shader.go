@@ -76,7 +76,7 @@ uniform vec4 textColor;
 
 void main()
 {
-    vec4 sampled = vec4(1.0, 1.0, 1.0, texture(tex, vec2(fragTexCoord.u, -fragTexCoord.v)).r);
+    vec4 sampled = vec4(1.0, 1.0, 1.0, texture(tex, vec2(fragTexCoord.x, -fragTexCoord.y)).r);
     outputColor = textColor * sampled;
 }` + "\x00"
 
