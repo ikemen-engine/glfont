@@ -2,6 +2,7 @@ package glfont
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/go-gl/gl/all-core/gl"
@@ -75,7 +76,7 @@ func (f *Font) UpdateResolution(windowWidth int, windowHeight int) {
 
 //Printf draws a string to the screen, takes a list of arguments like printf
 func (f *Font) Printf(x, y float32, scale float32, fs string, argv ...interface{}) error {
-
+	log.Println("PRINT")
 	indices := []rune(fmt.Sprintf(fs, argv...))
 
 	if len(indices) == 0 {
