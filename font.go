@@ -115,16 +115,16 @@ func (f *Font) Printf(x, y float32, scale float32, fs string, argv ...interface{
 
 		//calculate position and size for current rune
 		xpos := x + float32(ch.bearingH)*scale
-		ypos := y - float32(ch.height-ch.bearingV)*scale
+		ypos := y + float32(ch.height-ch.bearingV)*scale
 		w := float32(ch.width) * scale
 		h := float32(ch.height) * scale
 		vertices := []float32{
 			xpos + w, ypos, 1.0, 0.0,
 			xpos, ypos, 0.0, 0.0,
-			xpos, ypos - h, 0.0, 1.0,
+			xpos, ypos + h, 0.0, 1.0,
 
-			xpos, ypos - h, 0.0, 1.0,
-			xpos + w, ypos - h, 1.0, 1.0,
+			xpos, ypos + h, 0.0, 1.0,
+			xpos + w, ypos + h, 1.0, 1.0,
 			xpos + w, ypos, 1.0, 0.0,
 		}
 
