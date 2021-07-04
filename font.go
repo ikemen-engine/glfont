@@ -121,11 +121,11 @@ func (f *Font) Printf(x, y float32, scale float32, fs string, argv ...interface{
 		vertices := []float32{
 			xpos + w, ypos, 0.0, 1.0,
 			xpos, ypos, 1.0, 1.0,
-			xpos, ypos - h, 0.0, 1.0,
+			xpos, ypos - h, 1.0, 0.0,
 
 			xpos, ypos - h, 1.0, 0.0,
 			xpos + w, ypos - h, 0.0, 0.0,
-			xpos + w, ypos, 1.0, 0.0,
+			xpos + w, ypos, 0.0, 1.0,
 		}
 
 		// Render glyph texture over quad
