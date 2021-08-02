@@ -19,12 +19,14 @@ const (
 
 // A Font allows rendering of text to an OpenGL context.
 type Font struct {
-	fontChar []*character
-	vao      uint32
-	vbo      uint32
-	program  uint32
-	texture  uint32 // Holds the glyph texture id.
-	color    color
+	fontChar    []*character
+	vao         uint32
+	vbo         uint32
+	program     uint32
+	textureID   uint32 // Holds the glyph texture id.
+	color       color
+	atlasWidth  float32
+	atlasHeight float32
 }
 
 type color struct {
@@ -34,8 +36,10 @@ type color struct {
 	a float32
 }
 
+type point [4]float32
+
 //LoadFont loads the specified font at the given scale.
-func LoadFont(file string, scale int32, windowWidth int, windowHeight int) (*Font, error) {
+func LoadFont(file string, scale int32, windowWidth int, windowHeight int, GLSLVersion uint) (*Font, error) {
 	fd, err := os.Open(file)
 	if err != nil {
 		return nil, err
@@ -43,7 +47,7 @@ func LoadFont(file string, scale int32, windowWidth int, windowHeight int) (*Fon
 	defer fd.Close()
 
 	// Configure the default font vertex and fragment shaders
-	program, err := newProgram(FontShaderVer + vertexFontShader, FontShaderVer + fragmentFontShader)
+	program, err := newProgram(GLSLVersion, vertexFontShader, fragmentFontShader)
 	if err != nil {
 		panic(err)
 	}
@@ -55,7 +59,7 @@ func LoadFont(file string, scale int32, windowWidth int, windowHeight int) (*Fon
 	resUniform := gl.GetUniformLocation(program, gl.Str("resolution\x00"))
 	gl.Uniform2f(resUniform, float32(windowWidth), float32(windowHeight))
 
-	return LoadTrueTypeFont(program, fd, scale, 32, 127, LeftToRight)
+	return LoadTrueTypeFont(program, fd, scale, 32, 256, LeftToRight)
 }
 
 //SetColor allows you to set the text color to be used when you draw the text
@@ -66,6 +70,7 @@ func (f *Font) SetColor(red float32, green float32, blue float32, alpha float32)
 	f.color.a = alpha
 }
 
+// UpdateResolution passes the new framebuffer size to the font shader
 func (f *Font) UpdateResolution(windowWidth int, windowHeight int) {
 	gl.UseProgram(f.program)
 	resUniform := gl.GetUniformLocation(f.program, gl.Str("resolution\x00"))
@@ -98,12 +103,8 @@ func (f *Font) Printf(x, y float32, scale float32, align int32, blend bool, wind
 	gl.UseProgram(f.program)
 	//set text color
 	gl.Uniform4f(gl.GetUniformLocation(f.program, gl.Str("textColor\x00")), f.color.r, f.color.g, f.color.b, f.color.a)
-	//set screen resolution
-	//resUniform := gl.GetUniformLocation(f.program, gl.Str("resolution\x00"))
-	//gl.Uniform2f(resUniform, float32(2560), float32(1440))
 
-	gl.ActiveTexture(gl.TEXTURE0)
-	gl.BindVertexArray(f.vao)
+	var coords []point
 
 	//calculate alignment position
 	if align == 0 {
@@ -114,51 +115,48 @@ func (f *Font) Printf(x, y float32, scale float32, align int32, blend bool, wind
 
 	// Iterate through all characters in string
 	for i := range indices {
-
 		//get rune
 		runeIndex := indices[i]
 
+		var ch *character
 		//skip runes that are not in font chacter range
 		if int(runeIndex)-int(lowChar) > len(f.fontChar) || runeIndex < lowChar {
-			fmt.Printf("%c %d\n", runeIndex, runeIndex)
-			continue
+			// print a ?
+			ch = f.fontChar[int(rune('?'))-int(lowChar)]
+		} else {
+			// find rune in fontChar list
+			ch = f.fontChar[runeIndex-lowChar]
 		}
-
-		//find rune in fontChar list
-		ch := f.fontChar[runeIndex-lowChar]
 
 		//calculate position and size for current rune
 		xpos := x + float32(ch.bearingH)*scale
 		ypos := y - float32(ch.height-ch.bearingV)*scale
 		w := float32(ch.width) * scale
 		h := float32(ch.height) * scale
-		vertices := []float32{
-			xpos + w, ypos, 1.0, 0.0,
-			xpos, ypos, 0.0, 0.0,
-			xpos, ypos + h, 0.0, 1.0,
 
-			xpos, ypos + h, 0.0, 1.0,
-			xpos + w, ypos + h, 1.0, 1.0,
-			xpos + w, ypos, 1.0, 0.0,
-		}
+		//set quad positions
+		var x1 = xpos
+		var x2 = xpos + w
+		var y1 = ypos
+		var y2 = ypos + h
 
-		// Render glyph texture over quad
-		gl.BindTexture(gl.TEXTURE_2D, ch.textureID)
-		// Update content of VBO memory
-		gl.BindBuffer(gl.ARRAY_BUFFER, f.vbo)
+		coords = append(coords, point{x1, y1, float32(ch.x) / f.atlasWidth, float32(ch.y) / f.atlasHeight})
+		coords = append(coords, point{x2, y1, float32(ch.x+ch.width) / f.atlasWidth, float32(ch.y) / f.atlasHeight})
+		coords = append(coords, point{x1, y2, float32(ch.x) / f.atlasWidth, float32(ch.y+ch.height) / f.atlasHeight})
+		coords = append(coords, point{x2, y1, float32(ch.x+ch.width) / f.atlasWidth, float32(ch.y) / f.atlasHeight})
+		coords = append(coords, point{x1, y2, float32(ch.x) / f.atlasWidth, float32(ch.y+ch.height) / f.atlasHeight})
+		coords = append(coords, point{x2, y2, float32(ch.x+ch.width) / f.atlasWidth, float32(ch.y+ch.height) / f.atlasHeight})
 
-		//BufferSubData(target Enum, offset int, data []byte)
-		gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(vertices)*4, gl.Ptr(vertices)) // Be sure to use glBufferSubData and not glBufferData
-		// Render quad
-		gl.DrawArrays(gl.TRIANGLES, 0, 24)
-
-		gl.BindBuffer(gl.ARRAY_BUFFER, 0)
 		// Now advance cursors for next glyph (note that advance is number of 1/64 pixels)
 		x += float32((ch.advance >> 6)) * scale // Bitshift by 6 to get value in pixels (2^6 = 64 (divide amount of 1/64th pixels by 64 to get amount of pixels))
-
 	}
 
-	//clear opengl textures and programs
+	gl.BindVertexArray(f.vao)
+	gl.ActiveTexture(gl.TEXTURE0)
+	gl.BindTexture(gl.TEXTURE_2D, f.textureID)
+	gl.BindBuffer(gl.ARRAY_BUFFER, f.vbo)
+	gl.BufferData(gl.ARRAY_BUFFER, len(coords)*16, gl.Ptr(coords), gl.DYNAMIC_DRAW)
+	gl.DrawArrays(gl.TRIANGLES, 0, int32(len(coords)))
 	gl.BindVertexArray(0)
 	gl.BindTexture(gl.TEXTURE_2D, 0)
 	gl.UseProgram(0)
