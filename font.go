@@ -75,7 +75,6 @@ func (f *Font) UpdateResolution(windowWidth int, windowHeight int) {
 
 //Printf draws a string to the screen, takes a list of arguments like printf
 func (f *Font) Printf(x, y float32, scale float32, align int32, blend bool, window [4]int32, fs string, argv ...interface{}) error {
-
 	indices := []rune(fmt.Sprintf(fs, argv...))
 
 	if len(indices) == 0 {
@@ -202,4 +201,15 @@ func (f *Font) Width(scale float32, fs string, argv ...interface{}) float32 {
 	}
 
 	return width
+}
+
+// Height - returns the height of a piece of text in pixels
+func (f *Font) Height() int {
+	var height int
+	for _, ch := range f.fontChar {
+		if ch.height > height {
+			height = ch.height
+		}
+	}
+	return height
 }
