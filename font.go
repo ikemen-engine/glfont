@@ -35,7 +35,7 @@ type color struct {
 }
 
 //LoadFont loads the specified font at the given scale.
-func LoadFont(file string, scale int32, windowWidth int, windowHeight int) (*Font, error) {
+func LoadFont(file string, scale int32, windowWidth int, windowHeight int, GLSLVersion uint) (*Font, error) {
 	fd, err := os.Open(file)
 	if err != nil {
 		return nil, err
@@ -43,7 +43,7 @@ func LoadFont(file string, scale int32, windowWidth int, windowHeight int) (*Fon
 	defer fd.Close()
 
 	// Configure the default font vertex and fragment shaders
-	program, err := newProgram(FontShaderVer + vertexFontShader, FontShaderVer + fragmentFontShader)
+	program, err := newProgram(GLSLVersion, vertexFontShader, fragmentFontShader)
 	if err != nil {
 		panic(err)
 	}

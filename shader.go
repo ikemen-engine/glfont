@@ -8,7 +8,10 @@ import (
 )
 
 //newProgram links the frag and vertex shader programs
-func newProgram(vertexShaderSource, fragmentShaderSource string) (uint32, error) {
+func newProgram(GLSLVersion uint, vertexShaderSource, fragmentShaderSource string) (uint32, error) {
+	vertexShaderSource = fmt.Sprintf("#version %d\n", GLSLVersion) + vertexShaderSource
+	fragmentShaderSource = fmt.Sprintf("#version %d\n", GLSLVersion) + fragmentShaderSource
+
 	vertexShader, err := compileShader(vertexShaderSource, gl.VERTEX_SHADER)
 	if err != nil {
 		return 0, err
@@ -34,7 +37,7 @@ func newProgram(vertexShaderSource, fragmentShaderSource string) (uint32, error)
 		log := strings.Repeat("\x00", int(logLength+1))
 		gl.GetProgramInfoLog(program, logLength, nil, gl.Str(log))
 
-		return 0, fmt.Errorf("failed to link program: %v", log)
+		return 0, fmt.Errorf("%v\nfailed to link program: %v", gl.GoStr(gl.GetString(gl.SHADING_LANGUAGE_VERSION)), log)
 	}
 
 	gl.DeleteShader(vertexShader)
@@ -61,40 +64,59 @@ func compileShader(source string, shaderType uint32) (uint32, error) {
 		log := strings.Repeat("\x00", int(logLength+1))
 		gl.GetShaderInfoLog(shader, logLength, nil, gl.Str(log))
 
-		return 0, fmt.Errorf("failed to compile %v: %v", source, log)
+		return 0, fmt.Errorf("%v\nfailed to compile %v: %v", gl.GoStr(gl.GetString(gl.SHADING_LANGUAGE_VERSION)), source, log)
 	}
 
 	return shader, nil
 }
 
-var FontShaderVer = "#version 150 core"
-
 var fragmentFontShader = `
-in vec2 fragTexCoord;
-out vec4 outputColor;
+#if __VERSION__ >= 130
+#define COMPAT_VARYING in
+#define COMPAT_ATTRIBUTE in
+#define COMPAT_TEXTURE texture
+#define COMPAT_FRAGCOLOR FragColor
+out vec4 FragColor;
+#else
+#define COMPAT_VARYING varying
+#define COMPAT_ATTRIBUTE attribute
+#define COMPAT_TEXTURE texture2D
+#define COMPAT_FRAGCOLOR gl_FragColor
+#endif
+
+COMPAT_VARYING vec2 fragTexCoord;
 
 uniform sampler2D tex;
 uniform vec4 textColor;
 
 void main()
-{    
-    vec4 sampled = vec4(1.0, 1.0, 1.0, texture(tex, fragTexCoord).r);
-    outputColor = textColor * sampled;
+{
+    vec4 sampled = vec4(1.0, 1.0, 1.0, COMPAT_TEXTURE(tex, fragTexCoord).r);
+    COMPAT_FRAGCOLOR = min(textColor, vec4(1.0, 1.0, 1.0, 1.0)) * sampled;
 }` + "\x00"
 
 var vertexFontShader = `
+#if __VERSION__ >= 130
+#define COMPAT_VARYING out
+#define COMPAT_ATTRIBUTE in
+#define COMPAT_TEXTURE texture
+#else
+#define COMPAT_VARYING varying
+#define COMPAT_ATTRIBUTE attribute
+#define COMPAT_TEXTURE texture2D
+#endif
 
 //vertex position
-in vec2 vert;
+COMPAT_ATTRIBUTE vec2 vert;
 
 //pass through to fragTexCoord
-in vec2 vertTexCoord;
+COMPAT_ATTRIBUTE vec2 vertTexCoord;
 
 //window res
 uniform vec2 resolution;
 
 //pass to frag
-out vec2 fragTexCoord;
+COMPAT_VARYING vec2 fragTexCoord;
 
 void main() {
    // convert the rectangle from pixels to 0.0 to 1.0
