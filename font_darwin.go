@@ -1,4 +1,4 @@
-//go:build !darwin
+//go:build darwin
 
 package glfont
 
@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/go-gl/gl/v2.1/gl"
+	gl "github.com/go-gl/gl/v3.2-core/gl"
 )
 
 // Direction represents the direction in which strings should be rendered.
