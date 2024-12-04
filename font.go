@@ -1,5 +1,3 @@
-//go:build !gl32
-
 package glfont
 
 import (
@@ -9,25 +7,8 @@ import (
 	"github.com/go-gl/gl/v2.1/gl"
 )
 
-// Direction represents the direction in which strings should be rendered.
-type Direction uint8
-
-// Known directions.
-const (
-	LeftToRight Direction = iota // E.g.: Latin
-	RightToLeft                  // E.g.: Arabic
-	TopToBottom                  // E.g.: Chinese
-)
-
-type color struct {
-	r float32
-	g float32
-	b float32
-	a float32
-}
-
 // LoadFont loads the specified font at the given scale.
-func LoadFont(file string, scale int32, windowWidth int, windowHeight int, GLSLVersion uint) (*Font, error) {
+func (r *FontRenderer_GL21) LoadFont(file string, scale int32, windowWidth int, windowHeight int) (Font, error) {
 	fd, err := os.Open(file)
 	if err != nil {
 		return nil, err
@@ -35,7 +16,7 @@ func LoadFont(file string, scale int32, windowWidth int, windowHeight int, GLSLV
 	defer fd.Close()
 
 	// Configure the default font vertex and fragment shaders
-	program, err := newProgram(GLSLVersion, vertexFontShader, fragmentFontShader)
+	program, err := r.newProgram(120, vertexFontShader, fragmentFontShader)
 	if err != nil {
 		panic(err)
 	}
@@ -47,18 +28,18 @@ func LoadFont(file string, scale int32, windowWidth int, windowHeight int, GLSLV
 	resUniform := gl.GetUniformLocation(program, gl.Str("resolution\x00"))
 	gl.Uniform2f(resUniform, float32(windowWidth), float32(windowHeight))
 
-	return LoadTrueTypeFont(program, fd, scale, 32, 127, LeftToRight)
+	return r.LoadTrueTypeFont(program, fd, scale, 32, 127, LeftToRight)
 }
 
 // SetColor allows you to set the text color to be used when you draw the text
-func (f *Font) SetColor(red float32, green float32, blue float32, alpha float32) {
+func (f *Font_GL21) SetColor(red float32, green float32, blue float32, alpha float32) {
 	f.color.r = red
 	f.color.g = green
 	f.color.b = blue
 	f.color.a = alpha
 }
 
-func (f *Font) UpdateResolution(windowWidth int, windowHeight int) {
+func (f *Font_GL21) UpdateResolution(windowWidth int, windowHeight int) {
 	gl.UseProgram(f.program)
 	resUniform := gl.GetUniformLocation(f.program, gl.Str("resolution\x00"))
 	gl.Uniform2f(resUniform, float32(windowWidth), float32(windowHeight))
@@ -66,7 +47,7 @@ func (f *Font) UpdateResolution(windowWidth int, windowHeight int) {
 }
 
 // Printf draws a string to the screen, takes a list of arguments like printf
-func (f *Font) Printf(x, y float32, scale float32, align int32, blend bool, window [4]int32, fs string, argv ...interface{}) error {
+func (f *Font_GL21) Printf(x, y float32, scale float32, align int32, blend bool, window [4]int32, fs string, argv ...interface{}) error {
 
 	indices := []rune(fmt.Sprintf(fs, argv...))
 
@@ -165,7 +146,7 @@ func (f *Font) Printf(x, y float32, scale float32, align int32, blend bool, wind
 }
 
 // Helper function to render a batch of glyphs
-func (f *Font) renderGlyphBatch(batchChars []*character, indices []rune, vertices []float32) {
+func (f *Font_GL21) renderGlyphBatch(batchChars []*character, indices []rune, vertices []float32) {
 	// Bind the buffer and update its data
 	gl.BindBuffer(gl.ARRAY_BUFFER, f.vbo)
 	gl.BufferData(gl.ARRAY_BUFFER, len(vertices)*4, gl.Ptr(vertices), gl.DYNAMIC_DRAW)
@@ -188,7 +169,7 @@ func (f *Font) renderGlyphBatch(batchChars []*character, indices []rune, vertice
 }
 
 // Width returns the width of a piece of text in pixels
-func (f *Font) Width(scale float32, fs string, argv ...interface{}) float32 {
+func (f *Font_GL21) Width(scale float32, fs string, argv ...interface{}) float32 {
 
 	var width float32
 
