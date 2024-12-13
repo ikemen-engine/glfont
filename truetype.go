@@ -1,5 +1,3 @@
-//go:build !gl32
-
 package glfont
 
 import (
@@ -17,7 +15,7 @@ import (
 )
 
 // A Font allows rendering of text to an OpenGL context.
-type Font struct {
+type Font_GL21 struct {
 	fontChar map[rune]*character
 	ttf      *truetype.Font
 	scale    int32
@@ -28,17 +26,8 @@ type Font struct {
 	color    color
 }
 
-type character struct {
-	textureID uint32 // ID handle of the glyph texture
-	width     int    //glyph width
-	height    int    //glyph height
-	advance   int    //glyph advance
-	bearingH  int    //glyph bearing horizontal
-	bearingV  int    //glyph bearing vertical
-}
-
 // GenerateGlyphs builds a set of textures based on a ttf files gylphs
-func (f *Font) GenerateGlyphs(low, high rune) error {
+func (f *Font_GL21) GenerateGlyphs(low, high rune) error {
 	//create a freetype context for drawing
 	c := freetype.NewContext()
 	c.SetDPI(72)
@@ -131,8 +120,8 @@ func (f *Font) GenerateGlyphs(low, high rune) error {
 }
 
 // LoadTrueTypeFont builds OpenGL buffers and glyph textures based on a ttf file
-func LoadTrueTypeFont(program uint32, r io.Reader, scale int32, low, high rune, dir Direction) (*Font, error) {
-	data, err := ioutil.ReadAll(r)
+func (r *FontRenderer_GL21) LoadTrueTypeFont(program uint32, reader io.Reader, scale int32, low, high rune, dir Direction) (Font, error) {
+	data, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +133,7 @@ func LoadTrueTypeFont(program uint32, r io.Reader, scale int32, low, high rune, 
 	}
 
 	//make Font stuct type
-	f := new(Font)
+	f := new(Font_GL21)
 	f.fontChar = make(map[rune]*character)
 	f.ttf = ttf
 	f.scale = scale
